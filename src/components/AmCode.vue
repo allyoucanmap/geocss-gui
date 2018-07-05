@@ -138,6 +138,43 @@
         font-size: 14px;
         white-space: pre-wrap;
     }
+    .CodeMirror-hints {
+        position: absolute;
+        z-index: 10;
+        overflow: hidden;
+        list-style: none;
+
+        margin: 0;
+        padding: 2px;
+
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.12);
+        border-radius: 3px;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        background-color: #ECEAE8;
+        font-size: 90%;
+        font-family: monospace;
+
+        max-height: 20em;
+        overflow-y: auto;
+    }
+
+    .CodeMirror-hint {
+        margin: 0;
+        padding: 0 4px;
+        border-radius: 2px;
+        white-space: pre;
+        color: #333333;
+        cursor: pointer;
+        background-color: #ECEAE8;
+    }
+
+    li.CodeMirror-hint-active {
+        background: #91f3f7;
+        color: #333333;
+    }
+    .CodeMirror-hints li:last-child {
+        display: none;
+    }
 </style>
 <template lang="html">
     <div :class="'am-editor am-code-' + type">
@@ -204,12 +241,13 @@
 <script>
 
     import codemirror from 'codemirror';
-    import 'codemirror/mode/css/css';
+    import '../../lib/geocss';
+    import 'codemirror/addon/hint/show-hint';
     import {head, delay, isEqual, isEmpty, startsWith, trim} from 'lodash';
     import {mapGetters, mapActions} from 'vuex';
     import { Chrome } from 'vue-color';
     import tinycolor from 'tinycolor2';
-    import {getVariables, getParsedVariables, compressCSS, getTemplate, parseVariable, writeVariables, cleanVariables} from '../utils/GeoCSSUtils';
+    import {pseudoclasses, properties, getVariables, getParsedVariables, compressCSS, getTemplate, parseVariable, writeVariables, cleanVariables} from '../utils/GeoCSSUtils';
     import AmPanel from './panel/AmPanel.vue';
     import AmInputGroup from './input/AmInputGroup.vue';
 
@@ -237,7 +275,8 @@
                 showAudioEditor: false,
                 value: '',
                 attributeValue: [],
-                general: null
+                general: null,
+                variables: []
             }
         },
         computed: {
@@ -312,7 +351,7 @@
             $_am_getType(value) {
                 if (tinycolor(value).getFormat()) {
                     return 'color';
-                } else if (startsWith(trim(value), 'wkt://')) {
+                } else if (startsWith(trim(value, '\''), 'wkt://')) {
                     return 'mark';
                 }
                 return 'text';
@@ -341,9 +380,37 @@
                     this.cm.on('dblclick', this.$_am_onDoubleClick);
                     this.cm.on('cursorActivity', this.$_am_onCursorActivity);
                     this.cm.on('scroll', this.$_am_updateVisualColor);
-                    this.cm.setValue(getTemplate(css) || css || '');
+                    this.cm.on('inputRead', this.$_am_autocomplete);
+                    const code = getTemplate(css) || css || '';
+                    this.cm.setValue(code);
+                    const variables = getVariables(code);
+                    this.variables = Object.keys(variables);
                     this.$_am_updateVisualColor();
                 }, 100);
+            },
+            $_am_autocomplete(cm) {
+                codemirror.showHint(cm, () => {
+                    const cursor = cm.getCursor();
+                    const token = cm.getTokenAt(cursor);
+
+                    const start = token.start;
+                    const end = cursor.ch;
+                    const line = cursor.line;
+                    const word = token.string;
+                    const type = token.type;
+                    const list = (type && type.indexOf('property') !== -1 && [...properties, ...this.variables]
+                        || type && type.indexOf('variable-3') !== -1 && [...pseudoclasses] || [])
+                        .filter(property => property.indexOf(word) !== -1);
+                    if (!head(list)) {
+                        return null;
+                    }
+
+                    return {
+                        list: [...list.sort(), word],
+                        from: codemirror.Pos(line, start),
+                        to: codemirror.Pos(line, end)
+                    }
+                });
             },
             $_am_destroy() {
                 if (this.cm) {
@@ -352,6 +419,8 @@
                     this.cm.off('dblclick', this.$_am_onDoubleClick);
                     this.cm.off('cursorActivity', this.$_am_onCursorActivity);
                     this.cm.off('scroll', this.$_am_updateVisualColor);
+                    this.cm.off('inputRead', this.$_am_autocomplete);
+                    this.variables = [];
                     this.cm = null;
                     this.setError();
                     this.$_am_resetEditors();
@@ -361,11 +430,13 @@
                 const cmDOM = document.getElementById('am-code-' + this.type);
                 const atoms = cmDOM && cmDOM.getElementsByClassName('cm-atom');
                 const property = cmDOM && cmDOM.getElementsByClassName('cm-property');
-                if (atoms || property) {
-                    const parms = [...(atoms || []), ...(property || [])];
+                const def = cmDOM && cmDOM.getElementsByClassName('cm-def');
+                const builtin = cmDOM && cmDOM.getElementsByClassName('cm-builtin'); 
+                if (atoms || property || def || builtin) {
+                    const parms = [...(atoms || []), ...(property || []), ...(def || []), ...(builtin || [])];
                     const options = getVariables(code || this.code);
                     for (let i = 0; i < parms.length; i++) {
-                        const text = parms[i].innerHTML;
+                        const text = parms[i].innerHTML.replace(/\@/g, '');
                         const styles = this.$_am_getStyle(text, options);
                         if (styles) {
                             parms[i].style.color = styles.color;
@@ -390,6 +461,7 @@
                 if (this.$_am_edit()) return null;
                 this.code = cm && cm.getValue() || this.code;
                 const variables = getVariables(this.code);
+                this.variables = Object.keys(variables);
                 const parsedVariables = getParsedVariables(null, variables);
                 try {
                     const css = compressCSS(this.code, parsedVariables, this.selectedLayer.label);
@@ -438,7 +510,7 @@
                 }
             },
             $_am_getProperty(cm) {
-                const inlineProperty = this.lineTokens.filter(token => token.type === 'property' || token.type === 'property error').reduce((str, token) => str + token.string ,'');
+                const inlineProperty = this.lineTokens.filter(token => token.type === 'property' || token.type === 'property error' || token.type === 'def').reduce((str, token) => str + token.string ,'');
                 if (inlineProperty) {
                     return inlineProperty;
                 }
@@ -450,7 +522,7 @@
                     while (checkUp) {
                         const token = [...cm.getLineTokens(upLine)];
                         const colon = head(token.filter(tk => tk.string === ':'));
-                        const cProperty = token.filter(tk => tk.type === 'property' || tk.type === 'property error').reduce((str, token) => str + token.string ,'');
+                        const cProperty = token.filter(tk => tk.type === 'property' || tk.type === 'property error' || token.type === 'def').reduce((str, token) => str + token.string ,'');
                         if (cProperty && colon) {
                             checkUp = false;
                             property = cProperty;

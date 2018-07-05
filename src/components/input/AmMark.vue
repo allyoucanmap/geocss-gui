@@ -49,7 +49,7 @@
             v-if="enable">
             <am-draw-editor
                 :value="mark"
-                :on-change="value => $am_onChange('wkt://' + value)"/>
+                :on-change="value => $am_onChange('\'wkt://' + value + '\'')"/>
         </div>
     </div>
 </template>

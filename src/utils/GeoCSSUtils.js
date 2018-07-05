@@ -3,19 +3,17 @@
 import {isNil, isString, trim, template, join} from 'lodash';
 import tinycolor from 'tinycolor2';
 
+const regex = /\@([\w]+):([^;]+);[\n\r|\r|\n|\r\n]/g; // /\@\{([^}]+)\}|\@\s\{([^}]+)\}/
+const interpolate = /@{([\s\S]+?)}/;
+
 const getVariables = code => {
-    return isString(code) && (code.match(/\@\{([^}]+)\}|\@\s\{([^}]+)\}/g) || []).reduce((newOptions, group) => {
-        const grp = isString(group) && group.replace(/\@|\{|\}/g, '');
-        const params = isString(group) && grp.split(/\;/g);
-        const paramsObj = params && params.reduce((newObj, obj) => {
-            const param = obj && isString(obj) && obj.replace(/\;|\@\-/g, '').split(/\:/);
-            const value = param.length > 1 && join(param.filter((val, idx) => idx > 0), ':');
-            return !isNil(param) && !isNil(param[0]) && value && !isNil(value) ? {
-                ...newObj,
-                [trim(param[0])]: trim(value)
-            } : {...newObj};
-        }, {}) || {};
-        return {...newOptions, ...paramsObj};
+    return isString(code) && (code.match(regex) || []).reduce((newVariables, variable) => {
+        const param = variable && isString(variable) && variable.replace(/\;|\@/g, '').split(/\:/);
+        const value = param.length > 1 && join(param.filter((val, idx) => idx > 0), ':');
+        return !isNil(param) && !isNil(param[0]) && value && !isNil(value) ? {
+            ...newVariables,
+            [trim(param[0])]: trim(value)
+        } : {...newVariables};
     }, {}) || {};
 };
 
@@ -69,8 +67,8 @@ const getName = (css = '') => {
 };
 
 const compileCSS = (code, variables) => {
-    const css = code && variables && template(code)(variables);
-    return !isNil(css) && css.replace(/\@\{([^}]+)\}|\@\s\{([^}]+)\}/g, '');
+    const css = code && variables && template(code, {interpolate})(variables);
+    return !isNil(css) && css.replace(regex, '');
 };
 
 const compressCSS = (code, variables, label) => {
@@ -81,17 +79,126 @@ const compressCSS = (code, variables, label) => {
 };
 
 const cleanVariables = (code = '') => {
-    return code.replace(/\@\{([^}]+)\}|\@\s\{([^}]+)\}/g, '');
+    return code.replace(regex, '');
 };
 
 const writeVariables = (variables = {}) => {
     const strVariables = Object.keys(variables).reduce((string, key) => {
-        return string + '\t' + key + ': ' + variables[key] + ';\n';
-    }, '@ {\n');
-    return strVariables === '@ {\n' ? '' : strVariables + '}'
+        return string + '@' + key + ': ' + variables[key] + ';\n';
+    }, '');
+    return strVariables;
 };
 
+const properties = [
+    'mark',
+    'mark-composite',
+    'mark-mime',
+    'mark-geometry',
+    'mark-size',
+    'mark-rotation',
+    'z-index',
+    'mark-label-obstacle',
+    'stroke',
+    'stroke-composite',
+    'stroke-geometry',
+    'stroke-offset',
+    'stroke-mime',
+    'stroke-size',
+    'stroke-rotation',
+    'stroke-width',
+    'stroke-opacity',
+    'stroke-dasharray',
+    'stroke-dashoffset',
+    'stroke-repeat',
+    'stroke-label-obstacle',
+    'stroke-linecap',
+    'stroke-linejoin',
+    'fill',
+    'fill-opacity',
+    'fill-composite',
+    'fill-geometry',
+    'fill-mime',
+    'fill-size',
+    'fill-rotation',
+    'fill-label-obstacle',
+    'graphic-margin',
+    'random',
+    'random-seed',
+    'random-rotation',
+    'random-symbol-count',
+    'random-tile-size',
+    'label',
+    'label-geometry',
+    'label-anchor',
+    'label-offset',
+    'label-rotation',
+    'label-z-index',
+    'shield',
+    'shield-mime',
+    'font-family',
+    'font-fill',
+    'font-style',
+    'font-weight',
+    'font-size',
+    'halo-radius',
+    'halo-color',
+    'halo-opacity',
+    'label-padding',
+    'label-group',
+    'label-max-displacement',
+    'label-min-group-distance',
+    'label-repeat',
+    'label-all-group',
+    'label-remove-overlaps',
+    'label-allow-overruns',
+    'label-follow-line',
+    'label-max-angle-delta',
+    'label-auto-wrap',
+    'label-force-ltr',
+    'label-conflict-resolution',
+    'label-fit-goodness',
+    'label-priority',
+    'shield-resize',
+    'shield-margin',
+    'label-underline-text',
+    'label-strikethrough-text',
+    'label-char-spacing',
+    'label-word-spacing',
+    'raster-channels',
+    'raster-composite',
+    'raster-geometry',
+    'raster-opacity',
+    'raster-contrast-enhancement',
+    'raster-gamma',
+    'raster-z-index',
+    'raster-color-map',
+    'raster-color-map-type',
+    'composite',
+    'composite-base',
+    'geometry',
+    'sort-by',
+    'sort-by-group',
+    'transform',
+    'size',
+    'rotation'
+];
+
+const pseudoclasses = [
+    'mark',
+    'shield',
+    'stroke',
+    'fill',
+    'symbol',
+    'nth-mark()',
+    'nth-shield()',
+    'nth-stroke()',
+    'nth-fill()',
+    'nth-symbol()'
+];
+
 export {
+    properties,
+    pseudoclasses,
     getVariables,
     parseVariable,
     getParsedVariables,

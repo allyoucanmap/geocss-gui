@@ -267,10 +267,10 @@ export default {
       return geom === 'MULTIPOLYGON(' ? 'MULTIPOLYGON()' : geom;
     },
     $_am_getWKT(wkt) {
-      const isValid = startsWith(trim(wkt), 'wkt://') || null;
+      const isValid = startsWith(trim(wkt, '\''), 'wkt://') || null;
       if (isValid) {
         const geometryString = wkt
-          .replace(/MULTIPOLYGON|wkt\:\/\/|wkt|\[|\]/g, "")
+          .replace(/MULTIPOLYGON|\'|wkt\:\/\/|wkt|\[|\]/g, "")
           .replace(/\(/g, "[")
           .replace(/\)/g, "]")
           .replace(
