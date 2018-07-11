@@ -21,7 +21,7 @@ export default {
             width: 0,
             height: 0
         },
-        center: [139.753372, 35.685360],
+        center: [4.3525, 50.846667],
         info: {},
         loading: false,
         settings: {

@@ -379,7 +379,7 @@
                     this.cm.on('change', this.$_am_onChange);
                     this.cm.on('dblclick', this.$_am_onDoubleClick);
                     this.cm.on('cursorActivity', this.$_am_onCursorActivity);
-                    this.cm.on('scroll', this.$_am_updateVisualColor);
+                    this.cm.on('scroll', this.$_am_scroll);
                     this.cm.on('inputRead', this.$_am_autocomplete);
                     const code = getTemplate(css) || css || '';
                     this.cm.setValue(code);
@@ -418,7 +418,7 @@
                     this.cm.off('change', this.$_am_onChange);
                     this.cm.off('dblclick', this.$_am_onDoubleClick);
                     this.cm.off('cursorActivity', this.$_am_onCursorActivity);
-                    this.cm.off('scroll', this.$_am_updateVisualColor);
+                    this.cm.off('scroll', this.$_am_scroll);
                     this.cm.off('inputRead', this.$_am_autocomplete);
                     this.variables = [];
                     this.cm = null;
@@ -426,12 +426,15 @@
                     this.$_am_resetEditors();
                 }
             },
+            $_am_scroll() {
+                this.$_am_updateVisualColor();
+            },
             $_am_updateVisualColor(code) {
                 const cmDOM = document.getElementById('am-code-' + this.type);
                 const atoms = cmDOM && cmDOM.getElementsByClassName('cm-atom');
                 const property = cmDOM && cmDOM.getElementsByClassName('cm-property');
                 const def = cmDOM && cmDOM.getElementsByClassName('cm-def');
-                const builtin = cmDOM && cmDOM.getElementsByClassName('cm-builtin'); 
+                const builtin = cmDOM && cmDOM.getElementsByClassName('cm-builtin');
                 if (atoms || property || def || builtin) {
                     const parms = [...(atoms || []), ...(property || []), ...(def || []), ...(builtin || [])];
                     const options = getVariables(code || this.code);
@@ -449,12 +452,12 @@
                 this.code = cm.getValue();
             },
             $_am_getFullName(layer) {
-                const prefix = layer.prefix && layer.prefix + '~' || '';
+                const prefix = layer.prefix || '';
                 const name = layer.name + '~gcssg';
                 return {
                     prefix,
                     name,
-                    fullName: prefix + name
+                    fullName: (prefix && prefix + '~') + name
                 };
             },
             $_am_onBlur(cm) {

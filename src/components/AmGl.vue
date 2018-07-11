@@ -268,7 +268,7 @@
                                 const layer = head(layers.filter(layer => layer.name === ent.id));
                                 const oldLayer = head(this.oldLayers.filter(layer => layer.name === ent.id));
                                 if (layer && oldLayer && layer.css !== oldLayer.css
-                                || this.oldCSS !== this.currentCSS && this.selectedLayer && ent.id === this.selectedLayer.name) {
+                                || this.oldCSS !== this.currentCSS /*&& this.selectedLayer && ent.id === this.selectedLayer.name*/) {
                                     this.onLoading(true);
                                    updateEntityTexture(ent,  this.$am_getLayerUrl({
                                         layer: layer,
@@ -285,8 +285,8 @@
                                 }
                             }
                         });
-                        const oldOrder = join(this.oldLayers.map(layer => layer.id), ',');
-                        const order = join(layers.map(layer => layer.id), ',');
+                        const oldOrder = join(this.oldLayers.reduce((newLayers, layer) => [...newLayers, ...layer.names], []), ',');
+                        const order = join(layers.reduce((newLayers, layer) => [...newLayers, ...layer.names], []), ',');
                         if (this.oldLayers.length !== layers.length
                         || this.updateZoom !== this.oldUpdateZoom
                         || Math.abs(this.pseudo[0] - this.oldPseudo[0]) < 1.2
@@ -373,10 +373,10 @@
                     VERSION: '1.1.1',
                     REQUEST: 'GetMap',
                     FORMAT: layer.format,
-                    LAYERS: layer.name,
+                    LAYERS: layer.names ? join(layer.names, ',') : layer.name,
                     SRS: 'EPSG:900913',
                     TRANSPARENT: 'true',
-                    STYLES: (layer.prefix && layer.prefix + '~' || '') + layer.name.replace(/\:/g, '_') + '~gcssg',
+                    STYLES: layer.styles ? join(layer.styles, ',') : (layer.prefix && layer.prefix + '~' || '') + layer.name.replace(/\:/g, '_') + '~gcssg',
                     WIDTH: width,
                     HEIGHT: height,
                     BBOX: join(bbox, ','),
@@ -432,7 +432,21 @@
                 }
             },
             $am_getLayers() {
-                return [...this.layers];
+                const layer = this.layers.length > 0 && this.layers.reduce((newLayer, lyr) => {
+                    return {
+                        ...lyr,
+                        names: [...newLayer.names, 
+                            lyr.name
+                        ],
+                        styles: [...newLayer.styles, 
+                            (lyr.prefix && lyr.prefix + '~' || '') + lyr.name.replace(/\:/g, '_') + '~gcssg'
+                        ]
+                    };
+                }, {
+                    names: [],
+                    styles: []
+                });
+                return layer ? [layer] : [];
             },
             $am_getEntities({layers, entity, bbox, width, height, callback = () => {}}) {
                 if (layers.length > 0) this.onLoading(true);

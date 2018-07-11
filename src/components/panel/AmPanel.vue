@@ -22,13 +22,21 @@
     .am-hover:hover {
         background-color: #91f3f7;
     }
+    .am-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .am-title span {
+        white-space: nowrap;
+        overflow: hidden;
+    }
 </style>
 
 <template lang="html">
     <div class="am-panel">
         <div class="am-head">
             <div
-                :class="`${onClick ? 'am-hover' : ''}`"
+                :class="`am-title ${onClick ? 'am-hover' : ''}`"
                 @click="$am_onClick">
                 <span>{{ head }}</span>
             </div>
