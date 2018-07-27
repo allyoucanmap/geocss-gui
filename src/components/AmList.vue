@@ -119,6 +119,7 @@
             <am-sortable-list
                 :items="items"
                 :selected-item="selectedLayer"
+                :on-duplicate="(event, itemId) => $am_create(event, itemId)"
                 :on-change="items => $am_updateLayers(items)"
                 :on-select="itemId => $am_selectLayer(itemId)"/>
         </div>
@@ -169,16 +170,45 @@
                 :value="colors"
                 @input="$am_changeColor"/>
         </div>
+        <div
+            v-if="duplicatedStyle"
+            class="am-modal-container">
+            <div class="am-modal">
+                <div class="am-footer">
+                    <button
+                        class="am-icon"
+                        @click="() => $am_createStyle('clear')">
+                        X
+                    </button>
+                </div>
+                <div class="am-field">
+                    <div class="am-label">
+                        <small>Name</small>
+                    </div>
+                    <input
+                        :value="nameDuplicatedStyle"
+                        @change="event => $am_onChangeNameStyle(event.target.value)">
+                </div>
+                <div class="am-footer">
+                    <button
+                        class="am-icon"
+                        @click="() => $am_createStyle()">
+                        P
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
 <script>
     import {mapGetters, mapActions} from 'vuex';
+    import {head} from 'lodash';
     import {Chrome} from 'vue-color';
     import AmSortableList from './list/AmSortableList.vue';
     import AmDropdown from './input/AmDropdown.vue';
     import uuidv1 from 'uuid/v1';
-
+    import {getTemplate, getVariables, getParsedVariables, compileCSS} from '../utils/GeoCSSUtils';
     export default {
         components: {
             Chrome,
@@ -215,7 +245,9 @@
                 colors: {
                     hex: ''
                 },
-                type: ''
+                type: '',
+                duplicatedStyle: null,
+                nameDuplicatedStyle: ''
             };
         },
         computed: {
@@ -242,7 +274,9 @@
                 selectLayer: 'app/selectLayer',
                 setBackgroundColor: 'app/setBackgroundColor',
                 updateLayers: 'app/updateLayers',
-                getCapabilities: 'app/getCapabilities'
+                getCapabilities: 'app/getCapabilities',
+                createStyle: 'app/createStyle',
+                setError: 'app/setError'
             }),
             $am_addLayer() {
                 this.add = false;
@@ -272,6 +306,33 @@
             },
             $am_onChange(idx, value) {
                 this.form = this.form.map((field, fieldId) => fieldId === idx ? {...field, value} : {...field});
+            },
+            $am_create(event, itemId) {
+                event.stopPropagation();
+                this.duplicatedStyle = head(this.items.filter(item => item.id === itemId));
+            },
+            $am_createStyle(action) {
+                if (action === 'clear' || !(this.duplicatedStyle && this.duplicatedStyle.css) || !this.nameDuplicatedStyle) {
+                    this.duplicatedStyle = null;
+                    this.nameDuplicatedStyle = '';
+                    return null;
+                }
+                const code = getTemplate(this.duplicatedStyle.css) || this.duplicatedStyle.css || '';
+                const variables = getVariables(code);
+                const parsedVariables = getParsedVariables(null, variables);
+                try {
+                    const css = compileCSS(code, parsedVariables);
+                    this.createStyle({name: this.nameDuplicatedStyle, css});
+                    this.duplicatedStyle = null;
+                    this.nameDuplicatedStyle = '';
+                } catch(e) {
+                    this.setError(e.message);
+                    this.duplicatedStyle = null;
+                    this.nameDuplicatedStyle = '';
+                }
+            },
+            $am_onChangeNameStyle(name) {
+                this.nameDuplicatedStyle = name;
             }
         }
     };

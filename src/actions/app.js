@@ -168,6 +168,21 @@ export default {
                 () => loading({ commit }, false)
             )
         },
+        createStyle({ commit, state }, options) {
+            const settings = {...state.settings};
+            loading({ commit }, true);
+            setError({commit});
+            styleAPI.updateStyle({
+                options,
+                settings
+            }, () => {
+                loading({ commit }, false);
+            },
+            error => {
+                loading({ commit }, false);
+                setError({commit}, error && error.response && error.response.statusText || '');
+            });
+        },
         loading,
         setError,
         updateCurrentCSS,

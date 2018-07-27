@@ -103,6 +103,11 @@
                         @click="event => $am_onExpand(event, item.id)">
                         {{ item.collapsed ? 'M' : 'P' }}
                     </button>
+                    <button
+                        class="am-icon"
+                        @click="event => onDuplicate(event, item.id)">
+                        9
+                    </button>
                 </div>
             </div>
             <div
@@ -151,6 +156,10 @@
                 default: () => {}
             },
             onSelect: {
+                type: Function,
+                default: () => {}
+            },
+            onDuplicate: {
                 type: Function,
                 default: () => {}
             },
